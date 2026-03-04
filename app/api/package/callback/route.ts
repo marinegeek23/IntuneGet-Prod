@@ -31,6 +31,9 @@ interface PackageCallbackBody {
     createdAt?: string;
   };
 
+  // Warnings for partial success (e.g., deployed but assignments failed)
+  warnings?: string[];
+
   // GitHub Actions run info
   runId?: string;
   runUrl?: string;
@@ -103,6 +106,11 @@ export async function POST(request: NextRequest) {
       updateData.intune_app_url = data.intuneAppUrl;
       updateData.completed_at = new Date().toISOString();
       updateData.progress_percent = 100;
+
+      // Store warnings for partial success (e.g., assignments/categories failed)
+      if (data.warnings && data.warnings.length > 0) {
+        updateData.warnings = data.warnings;
+      }
 
       // Get job details for upload history
       const job = await db.jobs.getById(data.jobId);

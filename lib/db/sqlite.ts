@@ -243,7 +243,7 @@ export const sqliteDb: DatabaseAdapter = {
       const values: unknown[] = [now];
 
       for (const [key, value] of Object.entries(data)) {
-        if (key === 'detection_rules' || key === 'package_config' || key === 'encryption_info') {
+        if (key === 'detection_rules' || key === 'package_config' || key === 'encryption_info' || key === 'warnings' || key === 'error_details') {
           updates.push(`${key} = ?`);
           values.push(value ? JSON.stringify(value) : null);
         } else {

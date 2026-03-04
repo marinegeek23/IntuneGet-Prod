@@ -21,6 +21,7 @@ import {
   Monitor,
   UserCircle,
   Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -60,6 +61,7 @@ interface PackagingJob {
   error_category?: string;
   error_code?: string;
   error_details?: Record<string, unknown>;
+  warnings?: string[];
   github_run_id?: number;
   github_run_url?: string;
   intunewin_url?: string;
@@ -905,6 +907,23 @@ function UploadJobCard({
               </div>
             </div>
             );
+          })()}
+
+          {/* Warnings - partial success (e.g., assignments could not be applied) */}
+          {(() => {
+            const warnings = Array.isArray(job.warnings) ? job.warnings.filter((w): w is string => typeof w === 'string') : [];
+            return warnings.length > 0 && job.status === 'deployed' ? (
+            <div className="mt-4 p-3 bg-status-warning/[0.08] border border-status-warning/20 rounded-lg">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-status-warning shrink-0 mt-0.5" />
+                <div className="text-sm text-text-secondary">
+                  {warnings.map((warning, i) => (
+                    <p key={i} className={i > 0 ? 'mt-1' : ''}>{warning}</p>
+                  ))}
+                </div>
+              </div>
+            </div>
+            ) : null;
           })()}
 
           {/* Success - deployed to Intune */}

@@ -45,6 +45,7 @@ export interface PackagingJob {
   error_category: string | null;
   error_code: string | null;
   error_details: Json | null;
+  warnings: Json | null;
   packager_id: string | null;
   packager_heartbeat_at: string | null;
   claimed_at: string | null;
