@@ -171,17 +171,25 @@ export function useUnmanagedApps(): UseUnmanagedAppsReturn {
     }
   }, [getToken, mspHeaders]);
 
-  // Initial load
+  // Initial load — fires once per tenant when authentication is ready.
+  // fetchApps identity changes (due to mspHeaders/getToken recreations) must
+  // NOT re-trigger the load; the ref ensures a single execution per tenant.
+  const loadedForTenantRef = useRef<string | null>(null);
+  const fetchAppsRef = useRef(fetchApps);
+  fetchAppsRef.current = fetchApps;
+  const tenantKey = isMspUser ? (selectedTenantId ?? 'self') : 'self';
+
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || loadedForTenantRef.current === tenantKey) return;
+    loadedForTenantRef.current = tenantKey;
 
     const load = async () => {
       setIsLoading(true);
-      await fetchApps();
+      await fetchAppsRef.current();
       setIsLoading(false);
     };
     load();
-  }, [fetchApps, isAuthenticated]);
+  }, [isAuthenticated, tenantKey]);
 
   // Refresh handler
   const handleRefresh = useCallback(async () => {

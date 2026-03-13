@@ -18,7 +18,7 @@ import type {
 } from '@/types/unmanaged';
 import type { Database, Json } from '@/types/database';
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
 const CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
@@ -345,17 +345,21 @@ export async function GET(request: NextRequest) {
       last_synced: now,
     }));
 
-    // Delete old cache entries for this tenant and insert new ones
-    await supabase
-      .from('discovered_apps_cache')
-      .delete()
-      .eq('tenant_id', tenantId);
-
+    // Upsert new cache entries, then remove stale ones from previous syncs.
+    // This avoids a delete-then-insert race where concurrent requests could
+    // see an empty cache and both hit the Graph API.
     if (cacheRecords.length > 0) {
       await supabase
         .from('discovered_apps_cache')
         .upsert(cacheRecords, { onConflict: 'tenant_id,discovered_app_id' });
     }
+
+    // Remove entries from previous syncs that are no longer present
+    await supabase
+      .from('discovered_apps_cache')
+      .delete()
+      .eq('tenant_id', tenantId)
+      .lt('last_synced', now);
 
     // Only hide deployed apps - pending/deploying/failed should remain visible
     const visibleApps = unmanagedApps.filter(app => {
