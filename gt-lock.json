@@ -4,57 +4,57 @@
   "entries": [
     {
       "fileId": "879f3a5f954ee8b75bf1e91f4ea9916b41c933e5beba7eb6362647a637c9c66d",
-      "versionId": "9f25af96b90a0b18130d74f4b1ce832143feca957ff6ec340e232d904925b928",
+      "versionId": "8ce6aa474ab8b2182d3f7007588a29827c15f5d42758cc4a774c75b1f53eb49b",
       "translations": {
         "de": {
-          "updatedAt": "2026-03-18T23:00:38.320Z",
+          "updatedAt": "2026-03-18T23:18:14.380Z",
           "fileName": "/Users/ugurkoc/Desktop/GitHub/IntuneGet-FrontBackend/IntuneGet/public/_gt/de.json",
-          "postProcessHash": "40acdb8654f49331cab214baa3079539a06ddce38301a8919b9eecf5aa5694f1"
+          "postProcessHash": "6629531d02ecb1b7a0f7114fd27fd2857a1c7b724692d86b8356452bdf1875e3"
         },
         "es": {
-          "updatedAt": "2026-03-18T23:00:38.324Z",
+          "updatedAt": "2026-03-18T23:18:14.386Z",
           "fileName": "/Users/ugurkoc/Desktop/GitHub/IntuneGet-FrontBackend/IntuneGet/public/_gt/es.json",
-          "postProcessHash": "50be5e55dac904922f95a578ac6158666b1acf92f7265f58727ea10e3eb40665"
+          "postProcessHash": "2c489b82a1d2b5bfe11c2386b041df069261746388ef6ef7892ef1abb34774a4"
         },
         "fr": {
-          "updatedAt": "2026-03-18T23:00:38.327Z",
+          "updatedAt": "2026-03-18T23:18:14.391Z",
           "fileName": "/Users/ugurkoc/Desktop/GitHub/IntuneGet-FrontBackend/IntuneGet/public/_gt/fr.json",
-          "postProcessHash": "aea892f36e2e82c09312d81b07c860b443e8e394e9c2297cb7fb536191afa130"
+          "postProcessHash": "23f0adebb8cd6496d98d5c7550c095f6d1065b33bba1242296484d4b55b70faa"
         },
         "it": {
-          "updatedAt": "2026-03-18T23:00:38.330Z",
+          "updatedAt": "2026-03-18T23:18:14.394Z",
           "fileName": "/Users/ugurkoc/Desktop/GitHub/IntuneGet-FrontBackend/IntuneGet/public/_gt/it.json",
-          "postProcessHash": "28439d9a0f09477f2438e477a6580dccc218da229005f15b6baa845efb02321e"
+          "postProcessHash": "9953a7fe3c45d20e25cb2421e090a971dc1f4bbcd0d3531653ab5c51b0eaf9a9"
         },
         "ja": {
-          "updatedAt": "2026-03-18T23:00:38.334Z",
+          "updatedAt": "2026-03-18T23:18:14.398Z",
           "fileName": "/Users/ugurkoc/Desktop/GitHub/IntuneGet-FrontBackend/IntuneGet/public/_gt/ja.json",
-          "postProcessHash": "ad24826a72dd45989a7fece6cdee76a2f8674db34e66843a58d9365a046756fd"
+          "postProcessHash": "3797e09387885a6cc45c056f7825adc5745eddfdb3948ff4f15cf29381263d52"
         },
         "ko": {
-          "updatedAt": "2026-03-18T23:00:38.338Z",
+          "updatedAt": "2026-03-18T23:18:14.402Z",
           "fileName": "/Users/ugurkoc/Desktop/GitHub/IntuneGet-FrontBackend/IntuneGet/public/_gt/ko.json",
-          "postProcessHash": "f611e5a889d30ae06077a654876dd85bc38aeac0c93046414f00f8cde759decb"
+          "postProcessHash": "9b51db2bdf26f9e894be1389843c56f9b9930aa306e8dcdda8fe48b6629235c0"
         },
         "nl": {
-          "updatedAt": "2026-03-18T23:00:38.341Z",
+          "updatedAt": "2026-03-18T23:18:14.405Z",
           "fileName": "/Users/ugurkoc/Desktop/GitHub/IntuneGet-FrontBackend/IntuneGet/public/_gt/nl.json",
-          "postProcessHash": "e1533867fdf35d13192066519ea34f6a747c30780164e0b1d53e7be2300c3a03"
+          "postProcessHash": "231628ff7133c9e15690fc4fb427a8800ff4766774261833378057bf52d73127"
         },
         "pt-BR": {
-          "updatedAt": "2026-03-18T23:00:38.344Z",
+          "updatedAt": "2026-03-18T23:18:14.408Z",
           "fileName": "/Users/ugurkoc/Desktop/GitHub/IntuneGet-FrontBackend/IntuneGet/public/_gt/pt-BR.json",
-          "postProcessHash": "bf5e3919cb3cb7ab5ad4dd364c3affc913f270101741498ab47020ffa9ffbcdc"
+          "postProcessHash": "198000b44019024ecfbcc446d09a3e3b702fd315a58404ccc0caf1557a11d30a"
         },
         "tr": {
-          "updatedAt": "2026-03-18T23:00:38.347Z",
+          "updatedAt": "2026-03-18T23:18:14.411Z",
           "fileName": "/Users/ugurkoc/Desktop/GitHub/IntuneGet-FrontBackend/IntuneGet/public/_gt/tr.json",
-          "postProcessHash": "4559f286ed6a9851fe3fdba6c12048d747ece56ae659c40681e03c4c79beea15"
+          "postProcessHash": "53104200cd563f3fc55d166bc28c472334b63063f0310c98f1e8a5e2151fd672"
         },
         "zh-CN": {
-          "updatedAt": "2026-03-18T23:00:38.349Z",
+          "updatedAt": "2026-03-18T23:18:14.415Z",
           "fileName": "/Users/ugurkoc/Desktop/GitHub/IntuneGet-FrontBackend/IntuneGet/public/_gt/zh-CN.json",
-          "postProcessHash": "825f17a124c90c558a9ea0fc0eb7dcd744685dbe00bb5392b5bd0579f6aad7c8"
+          "postProcessHash": "c34a271310296d1c3f2d1564eace4ff05090948d34825b5eb57b517c3fe81cf9"
         }
       },
       "fileName": "__INTERNAL_GT_TEMPLATE_NAME__"

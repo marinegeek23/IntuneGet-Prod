@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { T } from "gt-next";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ChevronDown, HelpCircle } from "lucide-react";
@@ -8,10 +8,55 @@ import { FadeIn } from "../animations/FadeIn";
 import { StaggerContainer, StaggerItem } from "../animations/StaggerContainer";
 import { Badge } from "../ui/Badge";
 import { cn } from "@/lib/utils";
-import { faqData } from "@/lib/data/faq-data";
 import { springPresets } from "@/lib/animations/variants";
 
-const visibleFaqs = faqData.filter((f) => f.visibleOnPage !== false);
+interface FAQItem {
+  question: ReactNode;
+  answer: ReactNode;
+}
+
+const faqItems: FAQItem[] = [
+  {
+    question: <T>What is IntuneGet and how does it work?</T>,
+    answer: <T>IntuneGet is the leading free, open-source tool for deploying Winget applications to Microsoft Intune. It automatically packages applications from the Winget repository (10,000+ apps) and uploads them to your Intune environment, streamlining your app deployment process with just a few clicks. No scripting or IntuneWin packaging required.</T>,
+  },
+  {
+    question: <T>Is IntuneGet really 100% free?</T>,
+    answer: <T>Yes! IntuneGet is completely free and open source under the AGPL-3.0 license. There are no hidden fees, no premium tiers, and no credit card required. You can use all features without any cost, modify it to fit your needs, and contribute to its development.</T>,
+  },
+  {
+    question: <T>Why is IntuneGet free?</T>,
+    answer: <T>IntuneGet is free with no seat limits because we believe every IT team deserves access to great deployment tools. IntuneGet gives you access to 10,000+ Winget packages, is fully open source under the AGPL-3.0 license, and supports self-hosting. No vendor lock-in, no surprise bills.</T>,
+  },
+  {
+    question: <T>How long does setup take?</T>,
+    answer: <T>Most users are up and running in under 5 minutes. Simply sign in with your Microsoft account, grant the necessary permissions, and you're ready to start deploying apps. Our step-by-step onboarding guides you through the entire process.</T>,
+  },
+  {
+    question: <T>Where is my data stored?</T>,
+    answer: <T>Your credentials and sensitive data never leave your environment. IntuneGet uses secure Microsoft authentication (Entra ID) and only stores minimal metadata needed for the service. All communications are encrypted, and you can self-host for complete control.</T>,
+  },
+  {
+    question: <T>Which applications are supported?</T>,
+    answer: <T>IntuneGet supports over 10,000+ applications available in the Winget repository. This includes popular software like browsers, productivity tools, development environments, and enterprise applications. The list is constantly growing as new apps are added to Winget.</T>,
+  },
+  {
+    question: <T>Do I need special permissions to use IntuneGet?</T>,
+    answer: <T>You'll need appropriate permissions in your Entra ID and Intune environment to upload and manage applications. Typically, this requires Intune Administrator or Application Administrator roles. We provide detailed documentation on the required permissions.</T>,
+  },
+  {
+    question: <T>What support is available?</T>,
+    answer: <T>As an open source project, support is provided through our GitHub community. You can file issues and get help from other users. We also have comprehensive documentation covering common use cases and troubleshooting.</T>,
+  },
+  {
+    question: <T>Can I self-host IntuneGet?</T>,
+    answer: <T>Yes! IntuneGet is fully open source under the AGPL-3.0 license and can be self-hosted on your own infrastructure using Docker. It uses an embedded SQLite database with zero external dependencies. Check out our documentation for detailed setup instructions, or use our hosted service for a hassle-free experience.</T>,
+  },
+  {
+    question: <T>How do I deploy Winget apps to Intune without scripting?</T>,
+    answer: <T>IntuneGet eliminates the need for scripting entirely. Simply search for an app from the 10,000+ Winget repository, configure your deployment settings with a visual interface, and click deploy. IntuneGet handles all the packaging, IntuneWin conversion, and upload to your Intune tenant automatically.</T>,
+  },
+];
 
 export function FAQSectionAnimated() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -24,7 +69,7 @@ export function FAQSectionAnimated() {
   return (
     <section className="relative w-full py-24 md:py-32 overflow-hidden">
       <div className="container relative px-4 md:px-6 mx-auto max-w-4xl">
-        {/* Section header - StaggerContainer for cascaded reveal */}
+        {/* Section header */}
         <StaggerContainer className="text-center mb-12 md:mb-16" staggerDelay={0.1}>
           <StaggerItem>
             <Badge
@@ -49,7 +94,7 @@ export function FAQSectionAnimated() {
 
         {/* FAQ items */}
         <StaggerContainer className="space-y-4" staggerDelay={0.1}>
-          {visibleFaqs.map((faq, index) => (
+          {faqItems.map((faq, index) => (
             <StaggerItem key={index}>
               <div
                 className={cn(
