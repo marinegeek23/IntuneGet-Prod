@@ -14,7 +14,7 @@ COPY . .
 
 # Build application
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+RUN npm run build:ci
 
 # Production stage
 FROM node:20-alpine AS runner
