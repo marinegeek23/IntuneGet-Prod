@@ -9,7 +9,8 @@ import { UserSettingsProvider } from "@/components/providers/UserSettingsProvide
 import { MspProvider } from "@/contexts/MspContext";
 import { CookieConsentBanner } from '@/components/consent/CookieConsentBanner';
 import { PlausibleLoader } from '@/components/analytics/PlausibleLoader';
-import { GTProvider, getLocale } from "gt-next";
+import { GTProvider } from "gt-next";
+import { getLocale } from "gt-next/server";
 
 // Analytics configuration
 const PLAUSIBLE_DOMAIN = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN;
