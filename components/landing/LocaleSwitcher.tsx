@@ -20,13 +20,33 @@ const localeFlags: Record<string, { flag: string; short: string }> = {
   "tr":    { flag: "\u{1F1F9}\u{1F1F7}", short: "TR" },
 };
 
+const OPEN_DELAY = 150;
+const CLOSE_DELAY = 200;
+
 export function LocaleSwitcher() {
   const { locale, locales, setLocale } = useLocaleSelector();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shouldReduceMotion = useReducedMotion();
 
   const currentFlag = locale ? localeFlags[locale] : null;
+
+  const clearTimers = useCallback(() => {
+    if (openTimer.current) clearTimeout(openTimer.current);
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  }, []);
+
+  const handleMouseEnter = useCallback(() => {
+    clearTimers();
+    openTimer.current = setTimeout(() => setIsOpen(true), OPEN_DELAY);
+  }, [clearTimers]);
+
+  const handleMouseLeave = useCallback(() => {
+    clearTimers();
+    closeTimer.current = setTimeout(() => setIsOpen(false), CLOSE_DELAY);
+  }, [clearTimers]);
 
   const handleClose = useCallback(() => setIsOpen(false), []);
 
@@ -50,10 +70,19 @@ export function LocaleSwitcher() {
     };
   }, [isOpen, handleClose]);
 
+  useEffect(() => {
+    return clearTimers;
+  }, [clearTimers]);
+
   if (!locales?.length) return null;
 
   return (
-    <div ref={containerRef} className="relative">
+    <div
+      ref={containerRef}
+      className="relative"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <button
         onClick={() => setIsOpen((prev) => !prev)}
         className="inline-flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary transition-colors duration-200"
