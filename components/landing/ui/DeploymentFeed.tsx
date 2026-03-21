@@ -24,10 +24,10 @@ const DEFAULT_TICK_INTERVAL_MS = 80;
 const HERO_CALM_TICK_INTERVAL_MS = 100;
 
 const STAGE_LABELS = [
-  { label: "Downloaded", shortLabel: "Downloaded" },
-  { label: "Packaged (.intunewin)", shortLabel: "Packaged" },
-  { label: "Uploaded to Intune", shortLabel: "Uploaded" },
-  { label: "Deployed", shortLabel: "Deployed" },
+  { label: "Downloaded", shortLabel: "Downloaded", activeLabel: "Downloading...", activeShortLabel: "Downloading..." },
+  { label: "Packaged", shortLabel: "Packaged", activeLabel: "Packaging...", activeShortLabel: "Packaging..." },
+  { label: "Uploaded", shortLabel: "Uploaded", activeLabel: "Uploading...", activeShortLabel: "Uploading..." },
+  { label: "Deployed", shortLabel: "Deployed", activeLabel: "Deploying...", activeShortLabel: "Deploying..." },
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -40,7 +40,6 @@ const APP_POOL: AppDefinition[] = [
   { name: "Slack", icon: "/icons/SlackTechnologies.Slack/icon-64.png", alt: "Slack deployment" },
   { name: "Firefox", icon: "/icons/Mozilla.Firefox/icon-64.png", alt: "Firefox deployment" },
   { name: "VS Code", icon: "/icons/Microsoft.VisualStudioCode/icon-64.png", alt: "VS Code deployment" },
-  { name: "Zoom", icon: "/icons/Zoom.Zoom/icon-64.png", alt: "Zoom deployment" },
   { name: "VLC Player", icon: "/icons/VideoLAN.VLC/icon-64.png", alt: "VLC Player deployment" },
   { name: "7-Zip", icon: "/icons/7zip.7zip/icon-64.png", alt: "7-Zip deployment" },
   { name: "Notepad++", icon: "/icons/Notepad++.Notepad++/icon-64.png", alt: "Notepad++ deployment" },
@@ -236,8 +235,8 @@ const AppRow = memo(function AppRow({ item, compact = false, isMobile = false, m
                       compact ? (isHeroCalm ? "text-[10px]" : "text-[9px]") : isHeroCalm ? "text-[11px]" : "text-[10px]"
                     )}
                   >
-                    <span className="hidden sm:inline">{stage.label}</span>
-                    <span className="sm:hidden">{stage.shortLabel}</span>
+                    <span className="hidden sm:inline">{isActive ? stage.activeLabel : stage.label}</span>
+                    <span className="sm:hidden">{isActive ? stage.activeShortLabel : stage.shortLabel}</span>
                   </span>
                 </div>
                 {isActive && <ProgressBar progress={progress} calm={isHeroCalm} />}
