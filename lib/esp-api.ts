@@ -1,11 +1,36 @@
 /**
  * Enrollment Status Page (ESP) Profile API
  * Manages ESP profiles via Microsoft Graph API (beta)
+ *
+ * Important: The Intune backend requires the FULL profile object in PATCH
+ * requests, not just the changed fields. We GET the complete profile first,
+ * modify the needed fields, and send everything back.
  */
 
 import type { EspProfileSummary } from '@/types/esp';
 
 const GRAPH_API_BASE = 'https://graph.microsoft.com/beta';
+
+interface EspProfileConfig {
+  '@odata.type': string;
+  id: string;
+  displayName: string;
+  description: string;
+  showInstallationProgress: boolean;
+  blockDeviceSetupRetryByUser: boolean;
+  allowDeviceResetOnInstallFailure: boolean;
+  allowLogCollectionOnInstallFailure: boolean;
+  customErrorMessage: string;
+  installProgressTimeoutInMinutes: number;
+  allowDeviceUseOnInstallFailure: boolean;
+  selectedMobileAppIds: string[];
+  allowNonBlockingAppInstallation: boolean;
+  installQualityUpdates: boolean;
+  trackInstallProgressForAutopilotOnly: boolean;
+  disableUserStatusTrackingAfterFirstUser: boolean;
+  roleScopeTagIds: string[];
+  [key: string]: unknown;
+}
 
 interface DeviceEnrollmentConfiguration {
   id: string;
@@ -13,7 +38,6 @@ interface DeviceEnrollmentConfiguration {
   description?: string;
   '@odata.type': string;
   selectedMobileAppIds?: string[];
-  showInstallationProgress?: boolean;
 }
 
 interface GraphApiListResponse<T> {
@@ -67,15 +91,13 @@ export async function listEspProfiles(
 
 /**
  * Get a single ESP profile with its full configuration.
+ * Returns the raw profile object so it can be modified and sent back
+ * in a PATCH (Intune requires the full object, not partial updates).
  */
 export async function getEspProfile(
   accessToken: string,
   profileId: string
-): Promise<{
-  id: string;
-  selectedMobileAppIds: string[];
-  showInstallationProgress: boolean;
-}> {
+): Promise<EspProfileConfig> {
   const response = await fetch(
     `${GRAPH_API_BASE}/deviceManagement/deviceEnrollmentConfigurations/${profileId}`,
     {
@@ -89,18 +111,27 @@ export async function getEspProfile(
     throw new Error(`Failed to get ESP profile ${profileId}`);
   }
 
-  const data: DeviceEnrollmentConfiguration = await response.json();
-  return {
-    id: data.id,
-    selectedMobileAppIds: data.selectedMobileAppIds || [],
-    showInstallationProgress: data.showInstallationProgress ?? false,
-  };
+  return await response.json();
 }
 
 /**
+ * Fields that should not be sent back in PATCH requests.
+ * These are read-only or server-managed properties.
+ */
+const READ_ONLY_FIELDS = [
+  'id',
+  'createdDateTime',
+  'lastModifiedDateTime',
+  'version',
+  'priority',
+  'deviceEnrollmentConfigurationType',
+  '@odata.context',
+];
+
+/**
  * Add an app to an ESP profile's selectedMobileAppIds.
- * Reads current configuration first, enables showInstallationProgress if needed,
- * then PATCHes the appended app list.
+ * Reads the full profile, modifies selectedMobileAppIds (and enables
+ * showInstallationProgress if needed), then PATCHes the complete object.
  * Returns { alreadyAdded: true } if the app was already present.
  *
  * Known limitation: The Graph API has no atomic append for selectedMobileAppIds.
@@ -113,45 +144,30 @@ export async function addAppToEspProfile(
   profileId: string,
   appId: string
 ): Promise<{ alreadyAdded: boolean }> {
-  // Get current profile configuration
+  // Get full profile configuration
   const profile = await getEspProfile(accessToken, profileId);
+  const currentAppIds = profile.selectedMobileAppIds || [];
 
-  if (profile.selectedMobileAppIds.includes(appId)) {
+  if (currentAppIds.includes(appId)) {
     return { alreadyAdded: true };
   }
 
-  // Append the new app ID
-  const updatedIds = [...profile.selectedMobileAppIds, appId];
+  // Build the full PATCH body from the current profile
+  const patchBody: Record<string, unknown> = { ...profile };
 
-  // Enable showInstallationProgress first if needed (separate call required
-  // because the Intune backend cascades settings - blocking apps are only
-  // accepted after installation progress tracking is enabled)
-  if (!profile.showInstallationProgress) {
-    const enableResponse = await fetch(
-      `${GRAPH_API_BASE}/deviceManagement/deviceEnrollmentConfigurations/${profileId}`,
-      {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          '@odata.type':
-            '#microsoft.graph.windows10EnrollmentCompletionPageConfiguration',
-          showInstallationProgress: true,
-        }),
-      }
-    );
-
-    if (!enableResponse.ok) {
-      const errorBody = await enableResponse.text().catch(() => '');
-      throw new Error(
-        `Failed to enable showInstallationProgress on ESP profile ${profileId} (${enableResponse.status}): ${errorBody}`
-      );
-    }
+  // Remove read-only fields
+  for (const field of READ_ONLY_FIELDS) {
+    delete patchBody[field];
   }
 
-  // Now add the app to selectedMobileAppIds
+  // Update selectedMobileAppIds with the new app
+  patchBody.selectedMobileAppIds = [...currentAppIds, appId];
+
+  // Enable showInstallationProgress if it's off (required for blocking apps)
+  if (!profile.showInstallationProgress) {
+    patchBody.showInstallationProgress = true;
+  }
+
   const patchResponse = await fetch(
     `${GRAPH_API_BASE}/deviceManagement/deviceEnrollmentConfigurations/${profileId}`,
     {
@@ -160,11 +176,7 @@ export async function addAppToEspProfile(
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        '@odata.type':
-          '#microsoft.graph.windows10EnrollmentCompletionPageConfiguration',
-        selectedMobileAppIds: updatedIds,
-      }),
+      body: JSON.stringify(patchBody),
     }
   );
 
@@ -177,7 +189,7 @@ export async function addAppToEspProfile(
     }
     if (patchResponse.status === 400) {
       throw new Error(
-        `Failed to add app to ESP profile (400 Bad Request). This can happen if the app type is not supported by ESP blocking apps (e.g. Microsoft Store apps deployed as winGetApp). ESP typically supports Win32 LOB apps. Details: ${errorBody}`
+        `Failed to add app to ESP profile (400 Bad Request). Details: ${errorBody}`
       );
     }
     throw new Error(
