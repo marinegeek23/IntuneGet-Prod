@@ -123,18 +123,35 @@ export async function addAppToEspProfile(
   // Append the new app ID
   const updatedIds = [...profile.selectedMobileAppIds, appId];
 
-  // Build PATCH body: always include selectedMobileAppIds,
-  // and enable showInstallationProgress if it's currently off
-  const patchBody: Record<string, unknown> = {
-    '@odata.type':
-      '#microsoft.graph.windows10EnrollmentCompletionPageConfiguration',
-    selectedMobileAppIds: updatedIds,
-  };
-
+  // Enable showInstallationProgress first if needed (separate call required
+  // because the Intune backend cascades settings - blocking apps are only
+  // accepted after installation progress tracking is enabled)
   if (!profile.showInstallationProgress) {
-    patchBody.showInstallationProgress = true;
+    const enableResponse = await fetch(
+      `${GRAPH_API_BASE}/deviceManagement/deviceEnrollmentConfigurations/${profileId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          '@odata.type':
+            '#microsoft.graph.windows10EnrollmentCompletionPageConfiguration',
+          showInstallationProgress: true,
+        }),
+      }
+    );
+
+    if (!enableResponse.ok) {
+      const errorBody = await enableResponse.text().catch(() => '');
+      throw new Error(
+        `Failed to enable showInstallationProgress on ESP profile ${profileId} (${enableResponse.status}): ${errorBody}`
+      );
+    }
   }
 
+  // Now add the app to selectedMobileAppIds
   const patchResponse = await fetch(
     `${GRAPH_API_BASE}/deviceManagement/deviceEnrollmentConfigurations/${profileId}`,
     {
@@ -143,7 +160,11 @@ export async function addAppToEspProfile(
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(patchBody),
+      body: JSON.stringify({
+        '@odata.type':
+          '#microsoft.graph.windows10EnrollmentCompletionPageConfiguration',
+        selectedMobileAppIds: updatedIds,
+      }),
     }
   );
 
