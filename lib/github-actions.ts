@@ -4,6 +4,8 @@
  * Uses repository_dispatch to a private workflows repository
  */
 
+import { applyInstallerUrlOverride } from './installer-url-overrides';
+
 export interface WorkflowInputs {
   jobId: string;
   tenantId: string;
@@ -96,6 +98,13 @@ export async function triggerPackagingWorkflow(
 ): Promise<TriggerResult> {
   const cfg = config || getGitHubActionsConfig();
 
+  const finalInstallerUrl = applyInstallerUrlOverride(
+    inputs.wingetId,
+    inputs.version,
+    inputs.architecture ?? '',
+    inputs.installerUrl,
+  );
+
   // Record time before triggering to help find the run
   const triggerTime = new Date();
 
@@ -129,7 +138,7 @@ export async function triggerPackagingWorkflow(
           architecture: inputs.architecture,
         },
         installer: {
-          url: inputs.installerUrl,
+          url: finalInstallerUrl,
           sha256: inputs.installerSha256,
           type: inputs.installerType,
           silentSwitches: inputs.silentSwitches,
