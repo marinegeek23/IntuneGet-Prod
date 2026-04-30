@@ -191,7 +191,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       - name: "Sync shard ${{ matrix.shard }}/${{ matrix.total_shards }}"
         env:
