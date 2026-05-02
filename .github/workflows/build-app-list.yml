@@ -183,9 +183,10 @@ jobs:
               packages.map(pkg => pkg.PackageId || pkg.PackageIdentifier || '').filter(Boolean)
             );
 
-            // Packages that ship as MSIX/msixbundle and must deploy via winGetApp (Store path)
+            // Packages that must deploy via winGetApp (Store path) because they are
+            // published in the Microsoft Store under their winget package identifier.
+            // Note: Anthropic.Claude has an EXE installer and is NOT in the Store — use win32.
             const STORE_ONLY_PACKAGES = new Set([
-              'Anthropic.Claude',
               'Microsoft.PowerShell',
               'WinSCP.WinSCP',
             ]);
