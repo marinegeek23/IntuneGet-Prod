@@ -183,13 +183,12 @@ jobs:
               packages.map(pkg => pkg.PackageId || pkg.PackageIdentifier || '').filter(Boolean)
             );
 
-            // Packages that must deploy via winGetApp (Store path) because they are
-            // published in the Microsoft Store under their winget package identifier.
-            // Note: Anthropic.Claude — EXE installer, NOT in the Store — use win32.
-            // Note: WinSCP.WinSCP — inno EXE from SourceForge, NOT in the Store — use win32.
-            const STORE_ONLY_PACKAGES = new Set([
-              'Microsoft.PowerShell',
-            ]);
+            // All three originally-targeted apps deploy via Win32, not winGetApp:
+            //   Anthropic.Claude — EXE, not in Store
+            //   WinSCP.WinSCP — inno EXE from SourceForge, not in Store
+            //   Microsoft.PowerShell — msixbundle listed first but Win32 MSI preferred
+            // Keep this set for any future genuine Store-only apps.
+            const STORE_ONLY_PACKAGES = new Set<string>();
 
             const appsToUpsert = packages.map(pkg => {
               // Extract publisher from PackageId (first part before .)

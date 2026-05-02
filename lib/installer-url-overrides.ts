@@ -25,6 +25,15 @@ export const INSTALLER_URL_OVERRIDES: Record<string, OverrideFn> = {
   // to a direct binary without triggering the packager's SF-specific code path.
   'WinSCP.WinSCP': (version) =>
     `https://winscp.net/download/WinSCP-${version}-Setup.exe`,
+
+  // PowerShell's winget manifest lists the msixbundle first. Intune rejects MSIX
+  // wrapped in intunewin for win32LobApp. Use the arch-specific MSI from GitHub
+  // Releases instead. winget version is "7.6.1.0"; GitHub tag drops the trailing .0.
+  'Microsoft.PowerShell': (version, architecture) => {
+    const ver = version.replace(/\.0$/, '');
+    const arch = architecture === 'x86' ? 'x86' : architecture === 'arm64' ? 'arm64' : 'x64';
+    return `https://github.com/PowerShell/PowerShell/releases/download/v${ver}/PowerShell-${ver}-win-${arch}.msi`;
+  },
 };
 
 export function applyInstallerUrlOverride(
