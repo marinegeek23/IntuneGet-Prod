@@ -33,7 +33,7 @@ export async function deployStoreApp(
     displayName: item.displayName,
     description: item.description || `Deployed via IntuneGet from Microsoft Store: ${item.packageIdentifier}\nSource: IntuneGet.com`,
     publisher: item.publisher,
-    packageIdentifier: item.packageIdentifier,
+    packageIdentifier: item.packageIdentifier || item.wingetId,
     installExperience: {
       runAsAccount: item.installExperience,
     },

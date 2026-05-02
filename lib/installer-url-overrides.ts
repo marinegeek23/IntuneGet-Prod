@@ -18,6 +18,13 @@ type OverrideFn = (version: string, architecture: string) => string | null;
 export const INSTALLER_URL_OVERRIDES: Record<string, OverrideFn> = {
   'Freeplane.Freeplane': (version) =>
     `https://github.com/freeplane/freeplane/releases/download/release-${version}/Freeplane-Setup-${version}.exe`,
+
+  // WinSCP winget manifest points at SourceForge (/download mirror-selection page).
+  // The packager's SourceForge mirror-retry logic exhausts all mirrors in CI.
+  // winscp.net/download/<version>-Setup.exe is their canonical URL and resolves
+  // to a direct binary without triggering the packager's SF-specific code path.
+  'WinSCP.WinSCP': (version) =>
+    `https://winscp.net/download/WinSCP-${version}-Setup.exe`,
 };
 
 export function applyInstallerUrlOverride(
