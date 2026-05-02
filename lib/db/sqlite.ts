@@ -33,6 +33,9 @@ function getDb(): Database.Database {
   // Initialize schema
   initializeSchema(db);
 
+  // Run migrations for schema changes on existing databases
+  runMigrations(db);
+
   return db;
 }
 
@@ -52,8 +55,8 @@ function initializeSchema(db: Database.Database): void {
       display_name TEXT NOT NULL,
       publisher TEXT,
       architecture TEXT,
-      installer_type TEXT NOT NULL,
-      installer_url TEXT NOT NULL,
+      installer_type TEXT,
+      installer_url TEXT,
       installer_sha256 TEXT,
       install_command TEXT,
       uninstall_command TEXT,
@@ -74,6 +77,11 @@ function initializeSchema(db: Database.Database): void {
       progress_percent INTEGER DEFAULT 0,
       progress_message TEXT,
       error_message TEXT,
+      error_stage TEXT,
+      error_category TEXT,
+      error_code TEXT,
+      error_details TEXT,
+      warnings TEXT,
       packager_id TEXT,
       packager_heartbeat_at TEXT,
       claimed_at TEXT,
@@ -83,6 +91,7 @@ function initializeSchema(db: Database.Database): void {
       completed_at TEXT,
       cancelled_at TEXT,
       cancelled_by TEXT,
+      app_source TEXT DEFAULT 'win32',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -131,6 +140,105 @@ function parseJobRow(row: Record<string, unknown>): PackagingJob {
     package_config: row.package_config ? JSON.parse(row.package_config as string) : null,
     encryption_info: row.encryption_info ? JSON.parse(row.encryption_info as string) : null,
   } as PackagingJob;
+}
+
+/**
+ * Migrate existing database schema to handle nullable installer columns and app_source.
+ * SQLite doesn't support ALTER COLUMN, so we recreate the table if needed.
+ */
+function runMigrations(db: Database.Database): void {
+  type ColInfo = { name: string; notnull: number };
+  const cols = db.prepare('PRAGMA table_info(packaging_jobs)').all() as ColInfo[];
+  const installerTypeCol = cols.find(c => c.name === 'installer_type');
+  const hasAppSource = cols.some(c => c.name === 'app_source');
+
+  if ((installerTypeCol && installerTypeCol.notnull === 1) || !hasAppSource) {
+    db.exec(`
+      BEGIN;
+      CREATE TABLE packaging_jobs_v2 (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        user_email TEXT,
+        tenant_id TEXT,
+        winget_id TEXT NOT NULL,
+        version TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        publisher TEXT,
+        architecture TEXT,
+        installer_type TEXT,
+        installer_url TEXT,
+        installer_sha256 TEXT,
+        install_command TEXT,
+        uninstall_command TEXT,
+        install_scope TEXT,
+        silent_switches TEXT,
+        detection_rules TEXT,
+        package_config TEXT,
+        github_run_id TEXT,
+        github_run_url TEXT,
+        intunewin_url TEXT,
+        intunewin_size_bytes INTEGER,
+        unencrypted_content_size INTEGER,
+        encryption_info TEXT,
+        intune_app_id TEXT,
+        intune_app_url TEXT,
+        status TEXT NOT NULL DEFAULT 'queued',
+        status_message TEXT,
+        progress_percent INTEGER DEFAULT 0,
+        progress_message TEXT,
+        error_message TEXT,
+        error_stage TEXT,
+        error_category TEXT,
+        error_code TEXT,
+        error_details TEXT,
+        warnings TEXT,
+        packager_id TEXT,
+        packager_heartbeat_at TEXT,
+        claimed_at TEXT,
+        packaging_started_at TEXT,
+        packaging_completed_at TEXT,
+        upload_started_at TEXT,
+        completed_at TEXT,
+        cancelled_at TEXT,
+        cancelled_by TEXT,
+        app_source TEXT DEFAULT 'win32',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO packaging_jobs_v2
+        SELECT id, user_id, user_email, tenant_id, winget_id, version, display_name,
+               publisher, architecture, installer_type, installer_url, installer_sha256,
+               install_command, uninstall_command, install_scope, silent_switches,
+               detection_rules, package_config, github_run_id, github_run_url,
+               intunewin_url, intunewin_size_bytes, unencrypted_content_size,
+               encryption_info, intune_app_id, intune_app_url, status, status_message,
+               progress_percent, progress_message, error_message,
+               NULL, NULL, NULL, NULL, NULL,
+               packager_id, packager_heartbeat_at, claimed_at, packaging_started_at,
+               packaging_completed_at, upload_started_at, completed_at,
+               cancelled_at, cancelled_by, 'win32', created_at, updated_at
+        FROM packaging_jobs;
+      DROP TABLE packaging_jobs;
+      ALTER TABLE packaging_jobs_v2 RENAME TO packaging_jobs;
+      CREATE INDEX IF NOT EXISTS idx_packaging_jobs_status ON packaging_jobs(status);
+      CREATE INDEX IF NOT EXISTS idx_packaging_jobs_user_id ON packaging_jobs(user_id);
+      CREATE INDEX IF NOT EXISTS idx_packaging_jobs_created_at ON packaging_jobs(created_at);
+      CREATE INDEX IF NOT EXISTS idx_packaging_jobs_packager_heartbeat ON packaging_jobs(packager_heartbeat_at);
+      COMMIT;
+    `);
+  }
+
+  // Add error detail columns if missing (additive migration, safe to run on any existing DB)
+  const colNames = cols.map(c => c.name);
+  const missingCols: string[] = [];
+  if (!colNames.includes('error_stage')) missingCols.push('ALTER TABLE packaging_jobs ADD COLUMN error_stage TEXT');
+  if (!colNames.includes('error_category')) missingCols.push('ALTER TABLE packaging_jobs ADD COLUMN error_category TEXT');
+  if (!colNames.includes('error_code')) missingCols.push('ALTER TABLE packaging_jobs ADD COLUMN error_code TEXT');
+  if (!colNames.includes('error_details')) missingCols.push('ALTER TABLE packaging_jobs ADD COLUMN error_details TEXT');
+  if (!colNames.includes('warnings')) missingCols.push('ALTER TABLE packaging_jobs ADD COLUMN warnings TEXT');
+  for (const stmt of missingCols) {
+    db.exec(stmt);
+  }
 }
 
 /**
@@ -198,9 +306,9 @@ export const sqliteDb: DatabaseAdapter = {
           id, user_id, user_email, tenant_id, winget_id, version, display_name,
           publisher, architecture, installer_type, installer_url, installer_sha256,
           install_command, uninstall_command, install_scope, detection_rules,
-          package_config, status, progress_percent, created_at, updated_at
+          package_config, status, progress_percent, app_source, created_at, updated_at
         ) VALUES (
-          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
       `);
 
@@ -214,8 +322,8 @@ export const sqliteDb: DatabaseAdapter = {
         job.display_name,
         job.publisher || null,
         job.architecture || null,
-        job.installer_type,
-        job.installer_url,
+        job.installer_type || null,
+        job.installer_url || null,
         job.installer_sha256 || null,
         job.install_command || null,
         job.uninstall_command || null,
@@ -224,6 +332,7 @@ export const sqliteDb: DatabaseAdapter = {
         job.package_config ? JSON.stringify(job.package_config) : null,
         job.status || 'queued',
         job.progress_percent || 0,
+        (job as Record<string, unknown>).app_source || 'win32',
         now,
         now
       );

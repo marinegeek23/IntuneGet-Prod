@@ -1,5 +1,6 @@
 -- Add installer_type to RPC function return types
--- The column already exists on curated_apps; this exposes it through the RPC functions
+-- Add the column to curated_apps (it was assumed to exist but was never explicitly added)
+ALTER TABLE curated_apps ADD COLUMN IF NOT EXISTS installer_type TEXT;
 
 -- Recreate get_popular_curated_apps with installer_type
 DROP FUNCTION IF EXISTS get_popular_curated_apps(INTEGER, INTEGER, TEXT);

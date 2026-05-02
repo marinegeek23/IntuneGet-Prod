@@ -13,6 +13,7 @@ const GRAPH_BETA = 'https://graph.microsoft.com/beta';
 export interface StoreDeployResult {
   intuneAppId: string;
   intuneAppUrl: string;
+  warnings?: string[];
 }
 
 /**
@@ -57,8 +58,10 @@ export async function deployStoreApp(
   const intuneAppId: string = appData.id;
   const intuneAppUrl = `https://intune.microsoft.com/#view/Microsoft_Intune_Apps/SettingsMenu/~/0/appId/${intuneAppId}`;
 
+  const warnings: string[] = [];
+
   // Step 2: Wait for the app to finish publishing before assigning
-  // Intune winGetApp goes through a publishing phase after creation
+  // winGetApp publishing can take several minutes
   const needsWait = (item.assignments && item.assignments.length > 0) ||
                     (item.categories && item.categories.length > 0) ||
                     (item.espProfiles && item.espProfiles.length > 0);
@@ -66,17 +69,29 @@ export async function deployStoreApp(
     await waitForPublished(intuneAppId, accessToken);
   }
 
-  // Step 3: Apply assignments (if any)
+  // Step 3: Apply assignments (if any) -- non-fatal, app is already created in Intune
   if (item.assignments && item.assignments.length > 0) {
-    await applyStoreAssignments(intuneAppId, item.assignments, accessToken);
+    try {
+      await applyStoreAssignments(intuneAppId, item.assignments, accessToken);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[Store deploy] Assignment failed for ${intuneAppId}:`, msg);
+      warnings.push(`Assignment failed (app may still be publishing): ${msg}`);
+    }
   }
 
-  // Step 4: Apply categories (if any)
+  // Step 4: Apply categories (if any) -- non-fatal
   if (item.categories && item.categories.length > 0) {
-    await applyStoreCategories(intuneAppId, item.categories, accessToken);
+    try {
+      await applyStoreCategories(intuneAppId, item.categories, accessToken);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[Store deploy] Category failed for ${intuneAppId}:`, msg);
+      warnings.push(`Category application failed: ${msg}`);
+    }
   }
 
-  // Step 5: Apply ESP profiles (if any) -- non-fatal to avoid orphaning the already-created app
+  // Step 5: Apply ESP profiles (if any) -- non-fatal
   if (item.espProfiles && item.espProfiles.length > 0) {
     try {
       await applyEspProfiles(intuneAppId, item.espProfiles, accessToken);
@@ -85,7 +100,7 @@ export async function deployStoreApp(
     }
   }
 
-  return { intuneAppId, intuneAppUrl };
+  return { intuneAppId, intuneAppUrl, warnings: warnings.length > 0 ? warnings : undefined };
 }
 
 /**
@@ -194,8 +209,8 @@ async function applyStoreCategories(
 async function waitForPublished(
   appId: string,
   accessToken: string,
-  maxAttempts: number = 15,
-  intervalMs: number = 2000
+  maxAttempts: number = 12,
+  intervalMs: number = 5000
 ): Promise<void> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const response = await graphGet(

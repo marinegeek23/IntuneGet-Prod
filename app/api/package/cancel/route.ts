@@ -4,25 +4,20 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
 import { getDatabase } from '@/lib/db';
 import { cancelWorkflowRun, isGitHubActionsConfigured } from '@/lib/github-actions';
 import { parseAccessToken } from '@/lib/auth-utils';
 import { handleAutoUpdateJobCompletion } from '@/lib/auto-update/cleanup';
-import type { Database } from '@/types/database';
 
 interface CancelRequestBody {
   jobId: string;
   dismiss?: boolean;
 }
 
-type PackagingJobRow = Database['public']['Tables']['packaging_jobs']['Row'];
-type PackagingJobUpdate = Database['public']['Tables']['packaging_jobs']['Update'];
-
 // Statuses that can be cancelled (active jobs)
 const CANCELLABLE_STATUSES = ['queued', 'packaging', 'uploading'];
 // Statuses that can be force-dismissed by the user
-const DISMISSABLE_STATUSES = ['queued', 'packaging', 'uploading', 'completed', 'failed'];
+const DISMISSABLE_STATUSES = ['queued', 'packaging', 'uploading', 'completed', 'failed', 'cancelled', 'duplicate_skipped', 'deployed'];
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,7 +32,6 @@ export async function POST(request: NextRequest) {
     const userId = user.userId;
     const userEmail = user.userEmail;
 
-    // Parse request body
     const body: CancelRequestBody = await request.json();
     const { jobId, dismiss } = body;
 
@@ -48,27 +42,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create Supabase client
-    const supabase = createServerClient();
+    const db = getDatabase();
+    const job = await db.jobs.getById(jobId);
 
-    // Fetch the job to verify ownership and check status
-    const { data: job, error: fetchError } = await supabase
-      .from('packaging_jobs')
-      .select('*')
-      .eq('id', jobId)
-      .single();
-
-    if (fetchError || !job) {
+    if (!job) {
       return NextResponse.json(
         { error: 'Job not found' },
         { status: 404 }
       );
     }
 
-    const typedJob = job as PackagingJobRow;
-
     // Verify the user owns this job
-    if (typedJob.user_id !== userId) {
+    if (job.user_id !== userId) {
       return NextResponse.json(
         { error: 'You do not have permission to cancel this job' },
         { status: 403 }
@@ -77,17 +62,16 @@ export async function POST(request: NextRequest) {
 
     // If dismiss flag is set and job is in a terminal state, delete the row
     const terminalStatuses = ['completed', 'failed', 'cancelled', 'duplicate_skipped', 'deployed'];
-    if (dismiss && terminalStatuses.includes(typedJob.status)) {
-      // Run auto-update cleanup before deleting (defense-in-depth for stuck jobs)
-      if (typedJob.is_auto_update) {
-        const dismissStatus = (typedJob.status === 'deployed' || typedJob.status === 'duplicate_skipped')
-          ? typedJob.status as 'deployed' | 'duplicate_skipped'
+    if (dismiss && terminalStatuses.includes(job.status)) {
+      const isAutoUpdate = (job as unknown as Record<string, unknown>).is_auto_update;
+      if (isAutoUpdate) {
+        const dismissStatus = (job.status === 'deployed' || job.status === 'duplicate_skipped')
+          ? job.status as 'deployed' | 'duplicate_skipped'
           : 'cancelled';
         await handleAutoUpdateJobCompletion(jobId, dismissStatus).catch((err) => {
           console.error('[Cancel] Auto-update cleanup error on dismiss:', err);
         });
       }
-      const db = getDatabase();
       await db.jobs.deleteById(jobId);
       return NextResponse.json({
         success: true,
@@ -97,8 +81,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Check if job is already cancelled or deployed (cannot be modified)
-    if (typedJob.status === 'cancelled') {
+    if (job.status === 'cancelled') {
       return NextResponse.json({
         success: true,
         message: 'Job is already cancelled',
@@ -107,100 +90,41 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (typedJob.status === 'deployed') {
+    if (job.status === 'deployed') {
       return NextResponse.json(
         { error: 'Cannot cancel a deployed job. It is already in Intune.' },
         { status: 400 }
       );
     }
 
-    // Check if job can be dismissed
-    if (!DISMISSABLE_STATUSES.includes(typedJob.status)) {
+    if (!DISMISSABLE_STATUSES.includes(job.status)) {
       return NextResponse.json(
-        { error: `Job cannot be cancelled. Current status: ${typedJob.status}` },
+        { error: `Job cannot be cancelled. Current status: ${job.status}` },
         { status: 400 }
       );
     }
 
     // Attempt to cancel GitHub workflow if run ID exists and job is still active
     let githubCancelResult = null;
-    const isActiveJob = CANCELLABLE_STATUSES.includes(typedJob.status);
-    if (isActiveJob && typedJob.github_run_id && isGitHubActionsConfigured()) {
-      githubCancelResult = await cancelWorkflowRun(typedJob.github_run_id);
+    const isActiveJob = CANCELLABLE_STATUSES.includes(job.status);
+    if (isActiveJob && job.github_run_id && isGitHubActionsConfigured()) {
+      githubCancelResult = await cancelWorkflowRun(job.github_run_id);
     }
 
-    // Update job status to cancelled in database
-    // We update regardless of GitHub result - the user wants this cancelled/dismissed
-    let errorMessage = 'Job cancelled by user';
-    if (!isActiveJob) {
-      errorMessage = `Job dismissed by user (was ${typedJob.status})`;
-    } else if (githubCancelResult && !githubCancelResult.success) {
-      errorMessage = `Job cancelled by user. GitHub workflow: ${githubCancelResult.message}`;
-    }
+    const cancelledByEmail = userEmail || job.user_email || 'unknown';
+    const errorMessage = !isActiveJob
+      ? `Job dismissed by user (was ${job.status})`
+      : githubCancelResult && !githubCancelResult.success
+        ? `Job cancelled by user. GitHub workflow: ${githubCancelResult.message}`
+        : 'Job cancelled by user';
 
-    // Use token email, or fall back to job's stored user_email
-    const cancelledByEmail = userEmail || typedJob.user_email || 'unknown';
-
-    // Try full update first with all cancellation fields
-    const fullUpdateData: PackagingJobUpdate = {
+    await db.jobs.update(jobId, {
       status: 'cancelled',
       cancelled_at: new Date().toISOString(),
       cancelled_by: cancelledByEmail,
-      updated_at: new Date().toISOString(),
       error_message: errorMessage,
-    };
+    });
 
-    // Build query - use optimistic lock for active jobs, but allow force update for dismissed jobs
-    let updateQuery = supabase
-      .from('packaging_jobs')
-      .update(fullUpdateData)
-      .eq('id', jobId);
-
-    // Only use optimistic lock for active jobs (prevent race conditions)
-    // For dismissed jobs (completed/failed), we allow updating regardless of current status
-    if (isActiveJob) {
-      updateQuery = updateQuery.eq('status', typedJob.status);
-    } else {
-      // For non-active jobs, exclude already cancelled or deployed
-      updateQuery = updateQuery.not('status', 'in', '("cancelled","deployed")');
-    }
-
-    let { error: updateError } = await updateQuery;
-
-    // If full update fails (e.g., missing columns), try minimal update
-    if (updateError) {
-      // Fallback to minimal update with only essential fields
-      const minimalUpdateData: PackagingJobUpdate = {
-        status: 'cancelled',
-        updated_at: new Date().toISOString(),
-        error_message: errorMessage,
-      };
-
-      let minimalQuery = supabase
-        .from('packaging_jobs')
-        .update(minimalUpdateData)
-        .eq('id', jobId);
-
-      if (isActiveJob) {
-        minimalQuery = minimalQuery.eq('status', typedJob.status);
-      } else {
-        minimalQuery = minimalQuery.not('status', 'in', '("cancelled","deployed")');
-      }
-
-      const { error: minimalError } = await minimalQuery;
-
-      if (minimalError) {
-        return NextResponse.json(
-          { error: 'Failed to update job status. The job may have already changed status.' },
-          { status: 500 }
-        );
-      }
-
-      // Minimal update succeeded
-      updateError = null;
-    }
-
-    // Clean up auto-update tracking
     handleAutoUpdateJobCompletion(jobId, 'cancelled', errorMessage).catch((err) => {
       console.error('[Cancel] Auto-update cleanup error:', err);
     });

@@ -53,6 +53,7 @@ services:
       - GITHUB_PAT=${GITHUB_PAT:-}
       - GITHUB_OWNER=${GITHUB_OWNER:-}
       - GITHUB_REPO=${GITHUB_REPO:-}
+      - GITHUB_WORKFLOWS_REPO=${GITHUB_WORKFLOWS_REPO:-}
 
       # ===========================================
       # Callback Security (for GitHub mode)

@@ -41,9 +41,8 @@ CREATE TABLE IF NOT EXISTS sccm_migrations (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   last_migration_at TIMESTAMPTZ,
 
-  -- Foreign key to user profiles
-  CONSTRAINT fk_sccm_migrations_user FOREIGN KEY (user_id)
-    REFERENCES user_profiles(id) ON DELETE CASCADE
+  -- Note: user_profiles FK removed (IntuneGet uses Microsoft auth, not Supabase auth)
+  CONSTRAINT fk_sccm_migrations_unique_user_tenant UNIQUE (user_id, tenant_id, name)
 );
 
 -- Indexes for sccm_migrations
@@ -432,20 +431,17 @@ LANGUAGE sql STABLE AS $$
     COUNT(*) FILTER (WHERE migration_status = 'failed') as failed_apps,
     COALESCE(SUM(deployment_count), 0) as total_deployment_count,
     COUNT(*) FILTER (WHERE is_deployed = TRUE) as deployed_apps_count,
-    jsonb_object_agg(
-      COALESCE(technology, 'Unknown'),
-      tech_count
+    (
+      SELECT jsonb_object_agg(COALESCE(technology, 'Unknown'), tech_count)
+      FROM (
+        SELECT technology, COUNT(*) as tech_count
+        FROM sccm_apps
+        WHERE migration_id = p_migration_id
+        GROUP BY technology
+      ) t
     ) as technology_breakdown
   FROM sccm_apps
-  WHERE migration_id = p_migration_id
-  CROSS JOIN LATERAL (
-    SELECT technology as tech, COUNT(*) as tech_count
-    FROM sccm_apps
-    WHERE migration_id = p_migration_id
-    GROUP BY technology
-  ) tech_counts
-  GROUP BY tech_counts.tech, tech_counts.tech_count
-  LIMIT 1;
+  WHERE migration_id = p_migration_id;
 $$;
 
 -- Get SCCM mapping by name (for matching)

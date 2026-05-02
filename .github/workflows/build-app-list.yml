@@ -183,6 +183,13 @@ jobs:
               packages.map(pkg => pkg.PackageId || pkg.PackageIdentifier || '').filter(Boolean)
             );
 
+            // Packages that ship as MSIX/msixbundle and must deploy via winGetApp (Store path)
+            const STORE_ONLY_PACKAGES = new Set([
+              'Anthropic.Claude',
+              'Microsoft.PowerShell',
+              'WinSCP.WinSCP',
+            ]);
+
             const appsToUpsert = packages.map(pkg => {
               // Extract publisher from PackageId (first part before .)
               const packageId = pkg.PackageId || pkg.PackageIdentifier || '';
@@ -194,7 +201,7 @@ jobs:
               // Only mark as variant if the parent package also exists in the index
               const isVariant = localeInfo !== null && allPackageIds.has(localeInfo.parentId);
 
-              return {
+              const record = {
                 winget_id: packageId,
                 name: pkg.Name || pkg.PackageName || packageId,
                 publisher: publisher,
@@ -208,6 +215,13 @@ jobs:
                 is_locale_variant: isVariant,
                 updated_at: new Date().toISOString()
               };
+
+              // Force store path for known MSIX-only packages
+              if (STORE_ONLY_PACKAGES.has(packageId)) {
+                (record as Record<string, unknown>).app_source = 'store';
+              }
+
+              return record;
             }).filter(app => app.winget_id); // Filter out any entries without ID
 
             const variantCount = appsToUpsert.filter(a => a.is_locale_variant).length;

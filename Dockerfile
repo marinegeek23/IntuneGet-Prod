@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
 # Install dependencies
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm install --legacy-peer-deps
 
 # Copy source files
 COPY . .
@@ -17,7 +17,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build:ci
 
 # Production stage
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
@@ -27,6 +27,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
+
+# Create data directory with correct ownership for SQLite
+RUN mkdir -p /data && chown nextjs:nodejs /data
 
 # Copy built application
 COPY --from=builder /app/public ./public

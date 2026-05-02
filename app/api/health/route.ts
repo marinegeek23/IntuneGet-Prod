@@ -29,13 +29,21 @@ export async function GET() {
 
   // Check database connectivity
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (supabaseUrl && supabaseKey) {
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      const { error } = await supabase.from("apps").select("id").limit(1);
-      status.services.database = !error;
+    const databaseMode = process.env.DATABASE_MODE || 'supabase';
+    if (databaseMode === 'sqlite') {
+      // SQLite mode: verify the DB file is accessible
+      const { getDatabase } = await import('@/lib/db');
+      const db = getDatabase();
+      await db.jobs.getStats();
+      status.services.database = true;
+    } else {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (supabaseUrl && supabaseKey) {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const { error } = await supabase.from("curated_apps").select("id").limit(1);
+        status.services.database = !error;
+      }
     }
   } catch {
     status.services.database = false;
