@@ -481,7 +481,7 @@ function normalizeInstallerType(type: string | undefined): WingetInstallerType {
     zip: 'zip',
     inno: 'inno',
     nullsoft: 'nullsoft',
-    wix: 'wix',
+    wix: 'msi',
     burn: 'burn',
     pwa: 'pwa',
     portable: 'portable',
