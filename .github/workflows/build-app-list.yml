@@ -185,10 +185,10 @@ jobs:
 
             // Packages that must deploy via winGetApp (Store path) because they are
             // published in the Microsoft Store under their winget package identifier.
-            // Note: Anthropic.Claude has an EXE installer and is NOT in the Store — use win32.
+            // Note: Anthropic.Claude — EXE installer, NOT in the Store — use win32.
+            // Note: WinSCP.WinSCP — inno EXE from SourceForge, NOT in the Store — use win32.
             const STORE_ONLY_PACKAGES = new Set([
               'Microsoft.PowerShell',
-              'WinSCP.WinSCP',
             ]);
 
             const appsToUpsert = packages.map(pkg => {
