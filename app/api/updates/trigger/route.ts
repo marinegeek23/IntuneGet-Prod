@@ -20,7 +20,7 @@ import { extractSilentSwitches } from '@/lib/msp/silent-switches';
 import { generateDetectionRules, generateInstallCommand, generateUninstallCommand } from '@/lib/detection-rules';
 import { buildIntuneAppDescription } from '@/lib/intune-description';
 import { fetchInstallerManifest } from '@/lib/manifest-api';
-import { getDatabase } from '@/lib/db';
+import { getDatabase, isSqliteMode } from '@/lib/db';
 import type { WorkflowInputs } from '@/lib/github-actions';
 import type {
   TriggerUpdateRequest,
@@ -384,7 +384,11 @@ export async function POST(request: NextRequest) {
               forceCreateNewApp: true,
               assignmentMigration,
             };
-            originalUploadHistoryId = uploadHistory.id;
+            // Only use the upload_history ID as a Supabase FK if we're in
+            // Supabase mode. In SQLite mode, upload_history lives locally and
+            // its UUIDs don't exist in Supabase's upload_history table, so
+            // passing them would violate the FK on app_update_policies.
+            originalUploadHistoryId = isSqliteMode() ? null : uploadHistory.id;
           } else {
             // No prior deployment: build config from curated catalog data
             const defaultConfig = await buildDefaultDeploymentConfig(
