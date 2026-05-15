@@ -19,6 +19,8 @@ import { getFeatureFlags } from '@/lib/features';
 import { extractSilentSwitches } from '@/lib/msp/silent-switches';
 import { generateDetectionRules, generateInstallCommand, generateUninstallCommand } from '@/lib/detection-rules';
 import { buildIntuneAppDescription } from '@/lib/intune-description';
+import { fetchInstallerManifest } from '@/lib/manifest-api';
+import { getDatabase } from '@/lib/db';
 import type { WorkflowInputs } from '@/lib/github-actions';
 import type {
   TriggerUpdateRequest,
@@ -310,27 +312,20 @@ export async function POST(request: NextRequest) {
 
         // If no policy exists, check for prior deployment to get config
         if (!policy) {
-          // Get the original deployment config from upload_history
-          const { data: uploadHistory } = await supabase
-            .from('upload_history')
-            .select('id, packaging_job_id')
-            .eq('user_id', user.userId)
-            .eq('intune_tenant_id', req.tenant_id)
-            .eq('winget_id', req.winget_id)
-            .order('deployed_at', { ascending: false })
-            .limit(1)
-            .single();
+          // Use the db adapter so this works in both SQLite and Supabase modes.
+          // In SQLite (self-hosted), upload_history lives in SQLite, not Supabase.
+          const uploadHistory = await getDatabase().uploadHistory.getLatestByWingetIdAndTenant(
+            user.userId,
+            req.tenant_id,
+            req.winget_id
+          );
 
           let deploymentConfig: DeploymentConfig;
           let originalUploadHistoryId: string | null = null;
 
           if (uploadHistory?.packaging_job_id) {
             // Has prior deployment: extract config from packaging job
-            const { data: packagingJob } = await supabase
-              .from('packaging_jobs')
-              .select('*')
-              .eq('id', uploadHistory.packaging_job_id)
-              .single();
+            const packagingJob = await getDatabase().jobs.getById(uploadHistory.packaging_job_id);
 
             if (!packagingJob) {
               response.failed++;
@@ -648,7 +643,9 @@ async function buildDefaultDeploymentConfig(
     return null;
   }
 
-  // Get version history for installer metadata
+  // Get version history for installer metadata, falling back to direct manifest fetch
+  // if version_history hasn't been populated for this version (e.g. sync-manifests
+  // hasn't run yet, or the app was never synced).
   const { data: versionInfo } = await supabase
     .from('version_history')
     .select('installer_url, installer_sha256, installer_type, installers')
@@ -656,33 +653,39 @@ async function buildDefaultDeploymentConfig(
     .eq('version', latestVersion)
     .single();
 
-  if (!versionInfo?.installer_url) {
-    return null;
-  }
+  type InstallerEntry = { Architecture?: string; InstallerUrl?: string; InstallerSha256?: string; InstallerType?: string };
 
-  // Resolve architecture-specific installer (prefer x64)
-  let installerUrl = versionInfo.installer_url;
-  let installerSha256 = versionInfo.installer_sha256 || '';
-  let installerType = versionInfo.installer_type || 'exe';
+  let installerUrl = versionInfo?.installer_url || '';
+  let installerSha256 = versionInfo?.installer_sha256 || '';
+  let installerType = versionInfo?.installer_type || 'exe';
   let architecture = 'x64';
 
-  if (versionInfo.installers && Array.isArray(versionInfo.installers)) {
-    type InstallerEntry = { Architecture?: string; InstallerUrl?: string; InstallerSha256?: string; InstallerType?: string };
+  if (versionInfo?.installers && Array.isArray(versionInfo.installers)) {
     const installers = versionInfo.installers as InstallerEntry[];
-    const x64Installer = installers.find(
-      (i) => i.Architecture === 'x64'
-    );
+    const x64Installer = installers.find((i) => i.Architecture === 'x64');
     if (x64Installer) {
       installerUrl = x64Installer.InstallerUrl || installerUrl;
       installerSha256 = x64Installer.InstallerSha256 || installerSha256;
       installerType = x64Installer.InstallerType || installerType;
     } else if (installers.length > 0) {
-      // Use first available installer's architecture
       const first = installers[0];
-      if (first?.Architecture) {
-        architecture = first.Architecture.toLowerCase();
-      }
+      if (first?.Architecture) architecture = first.Architecture.toLowerCase();
     }
+  }
+
+  // Fall back to fetching the installer manifest directly from the winget repo
+  if (!installerUrl) {
+    const rawManifest = await fetchInstallerManifest(wingetId, latestVersion);
+    if (!rawManifest) return null;
+
+    const rawInstallers = (rawManifest.Installers as InstallerEntry[] | undefined) || [];
+    const x64 = rawInstallers.find((i) => i.Architecture === 'x64') || rawInstallers[0];
+    if (!x64?.InstallerUrl) return null;
+
+    installerUrl = x64.InstallerUrl;
+    installerSha256 = x64.InstallerSha256 || '';
+    installerType = x64.InstallerType || 'exe';
+    if (x64.Architecture) architecture = x64.Architecture.toLowerCase();
   }
 
   // Build a NormalizedInstaller for detection rule generation

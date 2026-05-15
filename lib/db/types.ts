@@ -170,5 +170,11 @@ export interface DatabaseAdapter {
      * Get upload history by user ID
      */
     getByUserId(userId: string, limit?: number): Promise<UploadHistoryRecord[]>;
+
+    /**
+     * Get the most recent upload history record for a specific app+tenant combination.
+     * Used by the update trigger to retrieve prior deployment config.
+     */
+    getLatestByWingetIdAndTenant(userId: string, tenantId: string, wingetId: string): Promise<UploadHistoryRecord | null>;
   };
 }

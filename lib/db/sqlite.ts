@@ -593,6 +593,20 @@ export const sqliteDb: DatabaseAdapter = {
       `);
       return stmt.all(userId, limit) as UploadHistoryRecord[];
     },
+
+    /**
+     * Get the most recent upload history record for a specific app+tenant combination.
+     */
+    async getLatestByWingetIdAndTenant(userId: string, tenantId: string, wingetId: string): Promise<UploadHistoryRecord | null> {
+      const database = getDb();
+      const stmt = database.prepare(`
+        SELECT * FROM upload_history
+        WHERE user_id = ? AND intune_tenant_id = ? AND winget_id = ?
+        ORDER BY deployed_at DESC
+        LIMIT 1
+      `);
+      return (stmt.get(userId, tenantId, wingetId) as UploadHistoryRecord | undefined) ?? null;
+    },
   },
 };
 

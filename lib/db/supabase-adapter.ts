@@ -506,5 +506,31 @@ export const supabaseDb: DatabaseAdapter = {
 
       return data || [];
     },
+
+    /**
+     * Get the most recent upload history record for a specific app+tenant combination.
+     */
+    async getLatestByWingetIdAndTenant(userId: string, tenantId: string, wingetId: string): Promise<UploadHistoryRecord | null> {
+      const supabase = createServerClient();
+      const query = getUploadHistoryQuery(supabase);
+
+      const { data, error } = await query
+        .select('*')
+        .eq('user_id', userId)
+        .eq('intune_tenant_id', tenantId)
+        .eq('winget_id', wingetId)
+        .order('deployed_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        // PGRST116 = no rows found, not a real error
+        if ((error as { code?: string }).code === 'PGRST116') return null;
+        console.error('Error fetching upload history by winget id:', error);
+        return null;
+      }
+
+      return data ?? null;
+    },
   },
 };
