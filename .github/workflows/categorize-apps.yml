@@ -30,7 +30,7 @@ on:
       model:
         description: 'OpenAI model'
         required: false
-        default: 'gpt-5-nano'
+        default: 'gpt-4.1-nano'
 
 concurrency:
   group: curated-apps-pipeline
@@ -65,7 +65,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: ${{ github.event.inputs.model || 'gpt-5-nano' }}
+          OPENAI_MODEL: ${{ github.event.inputs.model || 'gpt-4.1-nano' }}
           CATEGORIZE_MODE: ${{ github.event.inputs.mode || 'uncategorized' }}
           CATEGORIZE_LIMIT: ${{ github.event.inputs.limit || '500' }}
           CATEGORIZE_BATCH_SIZE: ${{ github.event.inputs.batch_size || '20' }}

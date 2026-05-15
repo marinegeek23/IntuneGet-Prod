@@ -2,7 +2,7 @@ const fs = require('fs');
 const { createClient } = require('@supabase/supabase-js');
 
 const OPENAI_API_URL = process.env.OPENAI_API_URL || 'https://api.openai.com/v1/responses';
-const MODEL = process.env.OPENAI_MODEL || 'gpt-5-nano';
+const MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-nano';
 const MODE = (process.env.CATEGORIZE_MODE || 'uncategorized').trim().toLowerCase();
 const LIMIT = clampInt(process.env.CATEGORIZE_LIMIT, 500, 1, 10000);
 const BATCH_SIZE = clampInt(process.env.CATEGORIZE_BATCH_SIZE, 20, 1, 50);

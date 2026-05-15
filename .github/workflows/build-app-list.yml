@@ -188,7 +188,7 @@ jobs:
             //   WinSCP.WinSCP — inno EXE from SourceForge, not in Store
             //   Microsoft.PowerShell — msixbundle listed first but Win32 MSI preferred
             // Keep this set for any future genuine Store-only apps.
-            const STORE_ONLY_PACKAGES = new Set<string>();
+            const STORE_ONLY_PACKAGES = new Set();
 
             const appsToUpsert = packages.map(pkg => {
               // Extract publisher from PackageId (first part before .)
@@ -218,7 +218,7 @@ jobs:
 
               // Force store path for known MSIX-only packages
               if (STORE_ONLY_PACKAGES.has(packageId)) {
-                (record as Record<string, unknown>).app_source = 'store';
+                record.app_source = 'store';
               }
 
               return record;
